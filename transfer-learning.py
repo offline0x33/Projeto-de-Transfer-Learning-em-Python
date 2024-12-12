@@ -2,12 +2,14 @@ import os
 import zipfile
 import random
 import matplotlib.pyplot as plt
-from matplotlib.pyplot import imshow
+import requests
 import tensorflow as tf
 from tensorflow.keras.optimizers import RMSprop
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from shutil import copyfile
-import requests
+from tensorflow.keras.applications.vgg16 import VGG16
+from tensorflow.keras.layers import Dense, Flatten
+from tensorflow.keras.models import Model
 
 def download_file(url, filename):
   """Baixa um arquivo da URL especificada e salva com o nome fornecido.
@@ -138,6 +140,26 @@ history = model.fit(train_generator,
                               validation_data=validation_generator,
                               validation_steps=6)
 
+# Carrega o modelo VGG16 pré-treinado e congela as camadas
+base_model = VGG16(weights='imagenet', include_top=False, input_shape=(150, 150, 3))
+for layer in base_model.layers:
+    layer.trainable = False
+
+# Adiciona camadas personalizadas
+x = base_model.output
+x = Flatten()(x)
+x = Dense(256, activation='relu')(x)
+predictions = Dense(1, activation='sigmoid')(x)
+model = Model(inputs=base_model.input, outputs=predictions)
+
+# Compila e treina
+model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+history = model.fit(
+    train_generator,
+    epochs=15,
+    validation_data=validation_generator
+)
+
 fig = plt.figure(figsize=(16,4))
 ax = fig.add_subplot(121)
 ax.plot(history.history["val_loss"])
@@ -151,3 +173,4 @@ ax2.set_xlabel("epochs")
 ax2.set_ylim(0, 1)
 
 plt.show()
+
